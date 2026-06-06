@@ -1,0 +1,110 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: urban-traffic-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_DB: urban_traffic
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  auth-service:
+    build: ./auth-service
+    container_name: auth-service
+    ports:
+      - "3001:3001"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres123@postgres:5432/auth_db
+      JWT_SECRET: super-secret-jwt-key-2024
+      PORT: 3001
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+
+  vehicle-service:
+    build: ./vehicle-service
+    container_name: vehicle-service
+    ports:
+      - "3002:3002"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres123@postgres:5432/vehicle_db
+      JWT_SECRET: super-secret-jwt-key-2024
+      PORT: 3002
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+
+  traffic-service:
+    build: ./traffic-service
+    container_name: traffic-service
+    ports:
+      - "3003:3003"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres123@postgres:5432/traffic_db
+      JWT_SECRET: super-secret-jwt-key-2024
+      PORT: 3003
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+
+  incident-service:
+    build: ./incident-service
+    container_name: incident-service
+    ports:
+      - "3004:3004"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres123@postgres:5432/incident_db
+      JWT_SECRET: super-secret-jwt-key-2024
+      PORT: 3004
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+
+  notification-service:
+    build: ./notification-service
+    container_name: notification-service
+    ports:
+      - "3005:3005"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres123@postgres:5432/notification_db
+      JWT_SECRET: super-secret-jwt-key-2024
+      PORT: 3005
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    ports:
+      - "4000:4000"
+    environment:
+      AUTH_SERVICE_URL: http://auth-service:3001/graphql
+      VEHICLE_SERVICE_URL: http://vehicle-service:3002/graphql
+      TRAFFIC_SERVICE_URL: http://traffic-service:3003/graphql
+      INCIDENT_SERVICE_URL: http://incident-service:3004/graphql
+      NOTIFICATION_SERVICE_URL: http://notification-service:3005/graphql
+      JWT_SECRET: super-secret-jwt-key-2024
+      PORT: 4000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+
+volumes:
+  postgres_data:
